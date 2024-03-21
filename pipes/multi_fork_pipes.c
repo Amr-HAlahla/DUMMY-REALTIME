@@ -5,133 +5,98 @@
 #include <sys/wait.h>
 #include <string.h>
 
+#define PROCESSES_NUM 3
+
 int main(int argc, char *argv[])
 {
-
-    /*
-    program to create 3 processes and 3 pipes to communicate between them,
-    where each process sends a number to the next process in a circular manner (P1 -> P2 -> P3 -> P1)
-    */
-    int fd[3][2]; // 3 pipes for 3 processes
-    /*
-    first pipe => fd[0] from process 1 to process 2 (P1 writes and P2 reads)
-    second pipe => fd[1] from process 2 to process 3 (P2 writes and P3 reads)
-    third pipe => fd[2] from process 3 to process 1 (P3 writes and P1 reads)
-    */
+    int pids[PROCESSES_NUM];
+    int pipes[PROCESSES_NUM + 1][2];
     int i;
-    for (i = 0; i < 3; i++)
+
+    for (i = 0; i < PROCESSES_NUM + 1; i++)
     {
-        if (pipe(fd[i]) == -1)
+        if (pipe(pipes[i]) == -1)
         {
             perror("Error creating pipe");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
 
-    pid_t pid[3]; // 3 processes
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < PROCESSES_NUM; i++)
     {
-        pid[i] = fork();
-        if (pid[i] < 0)
+        pids[i] = fork();
+        if (pids[i] < 0)
         {
             perror("Error creating process");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
-        if (pid[i] == 0)
+        if (pids[i] == 0)
         {
-            break;
+            int j;
+            for (j = 0; j < PROCESSES_NUM + 1; j++)
+            {
+                if (j != i && close(pipes[j][0]) == -1)
+                {
+                    perror("Error closing pipe read end in child process");
+                    exit(EXIT_FAILURE);
+                }
+                if (j != i + 1 && close(pipes[j][1]) == -1)
+                {
+                    perror("Error closing pipe write end in child process");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            int num;
+            if (read(pipes[i][0], &num, sizeof(int)) == -1)
+            {
+                perror("Error reading from pipe in child process");
+                exit(EXIT_FAILURE);
+            }
+            printf("P%d: done reading %d\n", i + 1, num);
+            num++;
+            if (write(pipes[i + 1][1], &num, sizeof(int)) == -1)
+            {
+                perror("Error writing to pipe in child process");
+                exit(EXIT_FAILURE);
+            }
+            printf("P%d: done writing %d\n", i + 1, num);
+            if (close(pipes[i][0]) == -1 || close(pipes[i + 1][1]) == -1)
+            {
+                perror("Error closing pipes in child process");
+                exit(EXIT_FAILURE);
+            }
+            exit(EXIT_SUCCESS);
         }
     }
 
-    if (pid[0] == 0)
+    int x;
+    srand(getpid());
+    x = rand() % 10 + 1;
+    printf("Main generated a random number: %d\n", x);
+    if (write(pipes[0][1], &x, sizeof(int)) == -1)
     {
-        close(fd[0][0]); // close read end of pipe 1
-        close(fd[2][1]); // close write end of pipe 3
-        // get a random number between 1 and 100
-        srand(getpid());
-        int num = rand() % 10 + 1;
-        printf("P1: %d\n", num);
+        perror("Error writing to pipe in main process");
+        exit(EXIT_FAILURE);
+    }
+    printf("Main: done writing %d\n", x);
 
-        // write the number to the next process
-        if (write(fd[0][1], &num, sizeof(int)) == -1)
-        {
-            perror("Error writing to pipe");
-            exit(1);
-        }
-        close(fd[0][1]); // close write end of pipe 1
+    for (i = 0; i < PROCESSES_NUM; i++)
+    {
+        wait(NULL);
+    }
+    if (read(pipes[PROCESSES_NUM][0], &x, sizeof(int)) == -1)
+    {
+        perror("Error reading from pipe in main process");
+        exit(EXIT_FAILURE);
+    }
+    printf("Main: done reading %d\n", x);
 
-        // read the number from the previous process
-        if (read(fd[2][0], &num, sizeof(int)) == -1)
-        {
-            perror("Error reading from pipe");
-            exit(1);
-        }
-        printf("P1: Received number: %d\n", num);
+    if (close(pipes[0][1]) == -1 || close(pipes[PROCESSES_NUM][0]) == -1)
+    {
+        perror("Error closing pipes in main process");
+        exit(EXIT_FAILURE);
+    }
 
-        close(fd[2][0]); // close read end of pipe 3
-        printf("P1: Done\n");
-    }
-    else if (pid[1] == 0)
-    {
-        close(fd[1][0]); // close read end of pipe 2
-        close(fd[0][1]); // close write end of pipe 1
-        int num;
-        // read the number from the previous process
-        if (read(fd[0][0], &num, sizeof(int)) == -1)
-        {
-            perror("Error reading from pipe");
-            exit(1);
-        }
-        // do some processing on the number
-        num *= 2;
-        printf("P2: Number multiplied by 2: %d\n", num);
-        // write the number to the next process
-        if (write(fd[1][1], &num, sizeof(int)) == -1)
-        {
-            perror("Error writing to pipe");
-            exit(1);
-        }
-        close(fd[1][1]); // close write end of pipe 2
-        close(fd[0][0]); // close read end of pipe 1
-        printf("P2: Done\n");
-    }
-    else if (pid[2] == 0)
-    {
-        close(fd[2][0]); // close read end of pipe 3
-        close(fd[1][1]); // close write end of pipe 2
-        int num;
-        // read the number from the previous process
-        if (read(fd[1][0], &num, sizeof(int)) == -1)
-        {
-            perror("Error reading from pipe");
-            exit(1);
-        }
-        // do some processing on the number
-        num += 1;
-        printf("P3: Number incremented by 1: %d\n", num);
-        // write the number to the next process
-        if (write(fd[2][1], &num, sizeof(int)) == -1)
-        {
-            perror("Error writing to pipe");
-            exit(1);
-        }
-        close(fd[2][1]); // close write end of pipe 3
-        close(fd[1][0]); // close read end of pipe 2
-        printf("P3: Done\n");
-    }
-    else
-    {
-        // close all ends of the pipes in the parent process
-        for (i = 0; i < 3; i++)
-        {
-            close(fd[i][0]);
-            close(fd[i][1]);
-        }
-        // wait for all child processes to finish
-        for (i = 0; i < 3; i++)
-        {
-            waitpid(pid[i], NULL, 0);
-        }
-    }
-    return 0;
+    printf("Main: done\n");
+    return EXIT_SUCCESS;
 }
