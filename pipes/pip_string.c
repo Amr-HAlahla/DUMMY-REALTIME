@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
             perror("write failed\n");
             exit(1);
         }
-        close(fd[0]); // close the read end of the pipe in the child process
+        close(fd[1]); // close the write end of the pipe in the child process
     }
     else
     {
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
             perror("read failed\n");
             exit(1);
         }
-
+        buf[BUF_SIZE - 1] = '\0'; // null-terminate the string
         printf("The string read from the pipe is: %s\n", buf);
         close(fd[0]); // close the read end of the pipe in the parent process
     }
