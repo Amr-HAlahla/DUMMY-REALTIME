@@ -1,0 +1,102 @@
+/*
+ * The PARENT
+ */
+
+#include "local.h"
+
+int main(int argc, char *argv[])
+{
+  static struct MEMORY memory;               /* shared memory */
+  static ushort start_val[2] = {N_SLOTS, 0}; /* semaphores */
+  int semid, shmid, croaker;                 /* croaker is the dead child */
+  char *shmptr;                              /* pointer to shared memory */
+  pid_t p_id, c_id, pid = getpid();          /* producer, consumer and parent pids */
+  union semun arg;                           /* for semctl */
+
+  memory.head = memory.tail = 0; /* initialize the memory */
+
+  if (argc != 3)
+  {
+    fprintf(stderr, "%s producer_time consumer_time\n", argv[0]);
+    exit(-1);
+  }
+
+  /*
+   * Create, attach and initialize the memory segment
+   */
+  if ((shmid = shmget((int)pid, sizeof(memory),
+                      IPC_CREAT | 0600)) != -1)
+  {
+
+    if ((shmptr = (char *)shmat(shmid, 0, 0)) == (char *)-1)
+    {
+      perror("shmptr -- parent -- attach");
+      exit(1);
+    }
+    /* copy the memory structure to the shared memory */
+    memcpy(shmptr, (char *)&memory, sizeof(memory));
+  }
+  else
+  {
+    perror("shmid -- parent -- creation");
+    exit(2);
+  }
+
+  /*
+   * Create and initialize the semaphores
+   */
+  if ((semid = semget((int)pid, 2, IPC_CREAT | 0666)) != -1)
+  {
+    arg.array = start_val;
+
+    if (semctl(semid, 0, SETALL, arg) == -1)
+    {
+      perror("semctl -- parent -- initialization");
+      exit(3);
+    }
+  }
+  else
+  {
+    perror("semget -- parent -- creation");
+    exit(4);
+  }
+
+  /*
+   * Fork the producer process
+   */
+  if ((p_id = fork()) == -1)
+  {
+    perror("fork -- producer");
+    exit(5);
+  }
+  else if (p_id == 0)
+  {
+    execl("./producer", "./producer", argv[1], (char *)0);
+    perror("execl -- producer");
+    exit(6);
+  }
+
+  /*
+   * Fork the consumer process
+   */
+  if ((c_id = fork()) == -1)
+  {
+    perror("fork -- consumer");
+    exit(7);
+  }
+  else if (c_id == 0)
+  {
+    execl("./consumer", "./consumer", argv[2], (char *)0);
+    perror("execl -- consumer");
+    exit(8);
+  }
+
+  croaker = (int)wait((int *)0);                  /* wait for 1 to die */
+  kill((croaker == p_id) ? c_id : p_id, SIGKILL); /* kill the other */
+
+  shmdt(shmptr);                                 /* detach shared memory */
+  shmctl(shmid, IPC_RMID, (struct shmid_ds *)0); /* remove shared memory */
+  semctl(semid, 0, IPC_RMID, 0);                 /* remove semaphores */
+
+  exit(0);
+}
