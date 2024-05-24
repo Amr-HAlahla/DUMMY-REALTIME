@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < THREADS; i++)
     {
-        if ((rc = pthread_create(&thread[i], NULL, &thread_function, NULL)))
+        if ((rc = pthread_create(&thread[i], NULL, &thread_function, NULL) != 0))
         {
             printf("Thread creation failed: %d\n", rc);
         }

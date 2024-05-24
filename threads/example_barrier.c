@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
     while (1)
     {
         pthread_barrier_wait(&diceBarrier); // guarantee all threads have rolled the dice before checking the winner
-        // calculate the winner
+        // calculate the winner, the winner is the thread that rolled the highest value
         int max = 0;
         for (int i = 0; i < NTHREADS; i++)
         {
@@ -70,8 +70,8 @@ int main(int argc, char *argv[])
                 status[i] = 0;
             }
         }
-        printf("============ New round! =============\n");
         pthread_barrier_wait(&winnerBarrier); // guarantee all threads have checked the winner before printing the result
+        printf("============ New round! =============\n");
     }
     for (int i = 0; i < NTHREADS; i++)
     {

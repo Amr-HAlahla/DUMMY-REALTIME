@@ -18,7 +18,7 @@ void *routine(void *args)
 {
     for (int i = 0; i < NUM_STOVES; i++)
     {
-        if (pthread_mutex_trylock(&stoveMutex[i]) == 0)
+        if (pthread_mutex_trylock(&stoveMutex[i]) == 0) // if the stove is available
         {
             int fuelNeeded = (rand() % 30);
             if (stoveFuel[i] - fuelNeeded < 0)

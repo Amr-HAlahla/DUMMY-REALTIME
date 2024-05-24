@@ -3,15 +3,15 @@
 void *functionC();
 
 /*Mutexes are used to prevent data inconsistencies due to race conditions.*/
-// pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex1;
+pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+// pthread_mutex_t mutex1;
 int counter = 0;
 
 int main(int argc, char *argv[])
 {
-    int rc1, rc2;
+    int rc1, rc2; // return code
     pthread_t thread1, thread2;
-    pthread_mutex_init(&mutex1, NULL);
+    // pthread_mutex_init(&mutex1, NULL);
 
     if ((rc1 = pthread_create(&thread1, NULL, &functionC, NULL)))
     {

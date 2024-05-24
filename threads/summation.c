@@ -28,8 +28,8 @@ int main()
     for (int i = 0; i < THREADS; i++)
     {
         int *a = malloc(sizeof(int));
-        *a = i * (SIZE / THREADS);
-        partial_sum[i] = 0;
+        *a = i * (SIZE / THREADS); // start index of the thread
+        partial_sum[i] = 0;        // initialize partial sum to 0 for each thread
         pthread_create(&threads[i], NULL, sum_array, a);
     }
 

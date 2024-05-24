@@ -1,7 +1,5 @@
 #include "threads.h"
 
-#include "threads.h"
-
 void *roll_dice()
 {
     int *value = malloc(sizeof(int));
@@ -25,18 +23,18 @@ int main()
         perror("pthread_create");
         exit(1);
     }
-    // pthread_exit(0);
-    /*
-        pthread_exit(0);
-        calling will not terminate the main thread directly,
-        it will wait for all the threads to finish their execution and then terminate the main thread
-    */
     /* getting the result from the thread from its return value */
     if (pthread_join(thread1, (void **)&result) != 0)
     {
         perror("pthread_join");
         exit(1);
     }
+    // pthread_exit(0);
+    /*
+        pthread_exit(0);
+        calling will not terminate the main thread directly,
+        it will wait for all the threads to finish their execution and then terminate the main thread
+    */
     printf("Result: %d\n", *result);
     free(result); // free the allocated memory
     return 0;
